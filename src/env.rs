@@ -34,4 +34,6 @@ fn env_jwt_algorithm() -> jsonwebtoken::Algorithm {
 
 lazy_static! {
     pub static ref LIBRE_JWT_ALGORITHM: jsonwebtoken::Algorithm = env_jwt_algorithm();
+    pub static ref HOST_URL: String =
+        std::env::var("HOST_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
 }

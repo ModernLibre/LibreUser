@@ -22,9 +22,13 @@ casdoor-rust-sdk = "1.3.0"
 tokio = { version = "1", features = ["full"] }
 lazy_static = "1.5.0"
 r2d2 = "0.8.10"
-redis = "0.27.6"
+redis = { version = "0.27.6", features = ["tokio-comp", "aio"] }
 rsa = "0.9.7"
 rand = "0.8.5"
+oauth2 = "4.4.2"
+url = "2.5.4"
+anyhow = "1.0.94"
+reqwest = { version = "0.12.9", features = ["json"] }
 [dev-dependencies]
 actix-rt = "2.5"
 

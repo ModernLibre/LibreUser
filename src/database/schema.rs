@@ -3,8 +3,8 @@ use diesel::table;
 table! {
     // user table
     user (uid) {
-        id -> Int4,
         uid -> Uuid,
+        login -> Varchar,
         username -> Varchar,
         avatar -> Varchar,
         email -> Varchar,

@@ -18,22 +18,7 @@ pub fn load_env() {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("debug"));
 }
 
-fn env_jwt_algorithm() -> jsonwebtoken::Algorithm {
-    let alg = std::env::var("LIBRE_JWT_ALGORITHM")
-        .unwrap_or_else(|_| "RS256".to_string())
-        .parse()
-        .expect("Failed to parse LIBRE_JWT_ALGORITHM");
-
-    match alg {
-        jsonwebtoken::Algorithm::RS256
-        | jsonwebtoken::Algorithm::RS384
-        | jsonwebtoken::Algorithm::RS512 => alg,
-        _ => panic!("LIBRE_JWT_ALGORITHM must be an RSA algorithm (RS256, RS384, RS512)"),
-    }
-}
-
 lazy_static! {
-    pub static ref LIBRE_JWT_ALGORITHM: jsonwebtoken::Algorithm = env_jwt_algorithm();
     pub static ref HOST_URL: String =
         std::env::var("HOST_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
 }

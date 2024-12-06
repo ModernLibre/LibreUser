@@ -8,8 +8,8 @@ use oauth2::{
 use serde::Deserialize;
 use url::Url;
 
-mod github;
 mod error;
+mod github;
 pub use error::Error;
 
 #[derive(Deserialize)]

@@ -6,7 +6,8 @@ use diesel::PgConnection;
 pub type DbPool = diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<PgConnection>>;
 
 pub mod error;
-pub mod schema;
+mod schema;
+pub use schema::user;
 
 pub async fn get_conn(
     pool: web::Data<DbPool>,

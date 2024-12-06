@@ -1,7 +1,6 @@
 use actix_web::web::Json;
 use oauth2::{basic::BasicErrorResponseType, RequestTokenError, StandardErrorResponse};
 
-
 #[derive(Debug, derive_more::Display)]
 pub enum Error {
     #[display(fmt = "Redis error: {}", _0)]
@@ -22,18 +21,11 @@ impl From<redis::RedisError> for Error {
 impl actix_web::error::ResponseError for Error {
     fn error_response(&self) -> actix_web::HttpResponse {
         match self {
-            Error::Authentication => {
-                actix_web::HttpResponse::Unauthorized()
-                    .finish()
-            }
-            Error::BadRequest => {
-                actix_web::HttpResponse::BadRequest()
-                    .finish()
-            }
+            Error::Authentication => actix_web::HttpResponse::Unauthorized().finish(),
+            Error::BadRequest => actix_web::HttpResponse::BadRequest().finish(),
             Error::Redis(_) | Error::Parse | Error::Other(_) => {
                 log::error!("Internal server error: {:?}", self);
-                actix_web::HttpResponse::InternalServerError()
-                    .finish()
+                actix_web::HttpResponse::InternalServerError().finish()
             }
         }
     }

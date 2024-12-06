@@ -17,11 +17,13 @@ use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder, Response
 
 use oauth2::basic::{BasicClient, BasicErrorResponseType, BasicTokenType};
 use oauth2::{
-    Client, EmptyExtraTokenFields, PkceCodeChallenge, PkceCodeVerifier, RevocationErrorResponseType, StandardErrorResponse, StandardRevocableToken, StandardTokenIntrospectionResponse, StandardTokenResponse
-};
-use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
     TokenResponse, TokenUrl,
+};
+use oauth2::{
+    Client, EmptyExtraTokenFields, PkceCodeChallenge, PkceCodeVerifier,
+    RevocationErrorResponseType, StandardErrorResponse, StandardRevocableToken,
+    StandardTokenIntrospectionResponse, StandardTokenResponse,
 };
 use redis::{AsyncCommands as _, RedisError};
 use serde::{Deserialize, Serialize};
@@ -31,8 +33,8 @@ use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 
-use crate::env::HOST_URL;
 use super::Error;
+use crate::env::HOST_URL;
 
 type GitHubClient = Client<
     StandardErrorResponse<BasicErrorResponseType>,
@@ -97,11 +99,14 @@ pub fn github_config(cfg: &mut web::ServiceConfig) {
         web::scope("/github")
             .app_data(client)
             .route("/auth", web::get().to(auth))
-            .route("/callback", web::get().to(callback))
+            .route("/callback", web::get().to(callback)),
     );
 }
 
-async fn auth(github: web::Data<GitHubClient>, redis: web::Data<redis::aio::MultiplexedConnection>) -> impl Responder {
+async fn auth(
+    github: web::Data<GitHubClient>,
+    redis: web::Data<redis::aio::MultiplexedConnection>,
+) -> impl Responder {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
     // Create an authorization URL to which we'll redirect the user.
@@ -115,7 +120,7 @@ async fn auth(github: web::Data<GitHubClient>, redis: web::Data<redis::aio::Mult
     let csrf_state = csrf_state.secret();
     let pkce_verifier = pkce_verifier.secret();
     let mut redis = (**redis).clone();
-    let _ = redis.set::<_ ,_ ,()>(csrf_state, pkce_verifier).await;
+    let _ = redis.set::<_, _, ()>(csrf_state, pkce_verifier).await;
     // Return the CSRF token to the client
     HttpResponse::SeeOther()
         .append_header(("Location", authorize_url.as_str()))
@@ -125,14 +130,15 @@ async fn auth(github: web::Data<GitHubClient>, redis: web::Data<redis::aio::Mult
 
 async fn callback(
     query: web::Query<super::CallbackQuery>,
-    github: web::Data<GitHubClient>, 
-    redis: web::Data<redis::aio::MultiplexedConnection>
+    github: web::Data<GitHubClient>,
+    redis: web::Data<redis::aio::MultiplexedConnection>,
 ) -> Result<HttpResponse, Error> {
     let query = query.into_inner();
     let mut redis = (**redis).clone();
     let pkce_verifier: String = redis.get(query.state.secret()).await?;
     let pkce_verifier = PkceCodeVerifier::new(pkce_verifier);
-    let token = github.exchange_code(query.code)
+    let token = github
+        .exchange_code(query.code)
         .set_pkce_verifier(pkce_verifier)
         .request_async(oauth2::reqwest::async_http_client)
         .await?;
@@ -143,7 +149,7 @@ async fn callback(
 }
 
 async fn get_user_info_from_github(
-    token: &StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>
+    token: &StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>,
 ) -> Result<GitHubUser, Error> {
     // NB: Github returns a single comma-separated "scope" parameter instead of multiple
     // space-separated scopes. Github-specific clients can parse this scope into
@@ -161,14 +167,15 @@ async fn get_user_info_from_github(
     log::debug!("Token type: {:?}\n", token.token_type());
 
     let response = match token.token_type() {
-        BasicTokenType::Bearer => {
-            reqwest::Client::new()
-                .get(GITHUB_USER_API_URL)
-                .header("Authorization", format!("Bearer {}", token.access_token().secret()))
-                .send()
-                .await
-                .map_err(|_| Error::Other("Failed to get user info from Github"))?
-        }
+        BasicTokenType::Bearer => reqwest::Client::new()
+            .get(GITHUB_USER_API_URL)
+            .header(
+                "Authorization",
+                format!("Bearer {}", token.access_token().secret()),
+            )
+            .send()
+            .await
+            .map_err(|_| Error::Other("Failed to get user info from Github"))?,
         _ => {
             return Err(Error::Other("Unsupported token type"));
         }
@@ -188,7 +195,6 @@ async fn get_user_info_from_github(
         .json::<GitHubUser>()
         .await
         .map_err(|_| Error::Other("Failed to parse user info from Github"))?;
-
 
     log::debug!("Github return info: {:?}\n", user_info);
 

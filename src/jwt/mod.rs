@@ -4,9 +4,10 @@ use rsa::{pkcs1::EncodeRsaPrivateKey, pkcs8::LineEnding, RsaPrivateKey, RsaPubli
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::{env::LIBRE_JWT_ALGORITHM as jwt_algo, user::User};
+use crate::models::User;
 
-pub mod error;
+mod error;
+mod init;
 pub use error::Error;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,14 +75,19 @@ pub fn generate_key_pair(bits: usize) -> (RsaPrivateKey, RsaPublicKey) {
 pub fn validate_jwt(
     token: &str,
     public_key: &DecodingKey,
+    jwt_algo: jsonwebtoken::Algorithm,
 ) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
-    decode::<Claims>(token, &public_key, &Validation::new(*jwt_algo))
+    decode::<Claims>(token, &public_key, &Validation::new(jwt_algo))
 }
 
-pub fn generate_jwt(claims: Claims, private_key: &RsaPrivateKey) -> String {
+pub fn generate_jwt(
+    claims: Claims,
+    private_key: &RsaPrivateKey,
+    jwt_algo: jsonwebtoken::Algorithm,
+) -> String {
     let pem = private_key.to_pkcs1_pem(LineEnding::LF).unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
-    encode(&Header::new(*jwt_algo), &claims, &encoding_key).unwrap()
+    encode(&Header::new(jwt_algo), &claims, &encoding_key).unwrap()
 }
 
 #[cfg(test)]

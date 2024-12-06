@@ -7,6 +7,7 @@ pub mod jwt;
 pub mod models;
 pub mod oauth;
 pub mod util;
+pub mod middleware;
 
 #[macro_use]
 extern crate lazy_static;

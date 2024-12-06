@@ -1,15 +1,7 @@
 use actix_web::web;
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey};
+use jsonwebtoken::{DecodingKey, EncodingKey};
 
-lazy_static! {
-    pub static ref LIBRE_JWT_ALGORITHM: jsonwebtoken::Algorithm = env_jwt_algorithm();
-}
-
-pub(super) struct JwtUtil {
-    public_key: DecodingKey,
-    private_key: EncodingKey,
-    algorithm: Algorithm,
-}
+use super::JwtUtil;
 
 // const DEFAULT_PUBLIC_KEY_PATH: &str = "./key/publickey.pem";
 // const DEFAULT_PRIVATE_KEY_PATH: &str = "./key/privatekey.pem";

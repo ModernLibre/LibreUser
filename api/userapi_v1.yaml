@@ -1,0 +1,80 @@
+openapi: 3.0.0
+info:
+  title: User API
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      summary: Get all users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          description: Unauthorized
+    post:
+      summary: Create a new user
+      responses:
+        '200':
+          description: Successful operation
+  /users/{login}:
+    get:
+      summary: Get user by login
+      parameters:
+        - name: login
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+    put:
+      summary: Update user by login
+      parameters:
+        - name: login
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBuilder'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: User not found
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    UpdateBuilder:
+      type: object
+      properties:
+        username:
+          type: string
+        login:
+          type: string
+        email:
+          type: string
+        admin:
+          type: boolean

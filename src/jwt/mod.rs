@@ -1,4 +1,4 @@
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use rand::rngs::OsRng;
 use rsa::{pkcs1::EncodeRsaPrivateKey, pkcs8::LineEnding, RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,13 @@ use crate::models::User;
 mod error;
 mod init;
 pub use error::Error;
+pub use init::config_jwt_middleware;
+
+pub struct JwtUtil {
+    pub public_key: DecodingKey,
+    pub private_key: EncodingKey,
+    pub algorithm: Algorithm,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -72,22 +79,14 @@ pub fn generate_key_pair(bits: usize) -> (RsaPrivateKey, RsaPublicKey) {
     (private_key, public_key)
 }
 
-pub fn validate_jwt(
-    token: &str,
-    public_key: &DecodingKey,
-    jwt_algo: jsonwebtoken::Algorithm,
-) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
-    decode::<Claims>(token, &public_key, &Validation::new(jwt_algo))
-}
+impl JwtUtil {
+    pub fn validate_jwt(&self, token: &str) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
+        decode::<Claims>(token, &self.public_key, &Validation::new(self.algorithm))
+    }
 
-pub fn generate_jwt(
-    claims: Claims,
-    private_key: &RsaPrivateKey,
-    jwt_algo: jsonwebtoken::Algorithm,
-) -> String {
-    let pem = private_key.to_pkcs1_pem(LineEnding::LF).unwrap();
-    let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
-    encode(&Header::new(jwt_algo), &claims, &encoding_key).unwrap()
+    pub fn generate_jwt(&self, claims: Claims) -> Result<String, jsonwebtoken::errors::Error> {
+        encode(&Header::new(self.algorithm), &claims, &self.private_key)
+    }
 }
 
 #[cfg(test)]

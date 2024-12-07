@@ -13,13 +13,11 @@
 //! ...and follow the instructions.
 //!
 
-use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError};
+use actix_web::{web, HttpResponse, Responder};
 
-use diesel_async::pooled_connection::bb8::PooledConnection;
-use diesel_async::AsyncPgConnection;
 use oauth2::basic::{BasicClient, BasicErrorResponseType, BasicTokenType};
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
+    AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
     TokenResponse, TokenUrl,
 };
 use oauth2::{
@@ -27,13 +25,11 @@ use oauth2::{
     RevocationErrorResponseType, StandardErrorResponse, StandardRevocableToken,
     StandardTokenIntrospectionResponse, StandardTokenResponse,
 };
-use redis::{AsyncCommands as _, RedisError};
+use redis::AsyncCommands as _;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use std::env;
-use std::io::{BufRead, BufReader, Write};
-use std::net::TcpListener;
 
 use super::Error;
 use crate::database;
@@ -91,7 +87,7 @@ impl From<GitHubUser> for models::User {
             name: user.name.unwrap_or_else(|| user.login.clone()),
             login: user.login,
             avatar: user.avatar_url.to_string(),
-            email: user.email.unwrap_or_else(|| "".to_string()),
+            email: user.email.unwrap_or_default(),
             created_at: chrono::Utc::now().naive_utc(),
             admin: false,
             github_id: Some(user.id as i64),
@@ -168,7 +164,7 @@ async fn callback(
         redis_conn
             .get(query.state.secret())
             .await
-            .map_err(|e| actix_web::error::ErrorBadRequest(e))?,
+            .map_err(actix_web::error::ErrorBadRequest)?,
     );
 
     let token = github
@@ -202,7 +198,7 @@ async fn callback(
     let jwt = crate::jwt::Claims::from(&libre_user)
         .expiration(chrono::Duration::hours(1))
         .generate_jwt(&jwt)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     let body = LoginResponse {
         user: libre_user,

@@ -14,7 +14,7 @@ impl PostgresPool {
         self.0
             .get()
             .await
-            .map_err(|e| actix_web::error::ErrorInternalServerError(e))
+            .map_err(actix_web::error::ErrorInternalServerError)
     }
 }
 
@@ -23,7 +23,7 @@ impl RedisMultiplexClient {
         self.0
             .get_multiplexed_async_connection()
             .await
-            .map_err(|e| actix_web::error::ErrorInternalServerError(e))
+            .map_err(actix_web::error::ErrorInternalServerError)
     }
 }
 

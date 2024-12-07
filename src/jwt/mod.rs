@@ -3,9 +3,8 @@ use jsonwebtoken::{
     decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation,
 };
 use rand::rngs::OsRng;
-use rsa::{pkcs1::EncodeRsaPrivateKey, pkcs8::LineEnding, RsaPrivateKey, RsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::models::User;
 
@@ -77,7 +76,7 @@ impl Claims {
     }
 
     pub fn generate_jwt(&self, jwt_util: &JwtUtil) -> Result<String, jsonwebtoken::errors::Error> {
-        jwt_util.generate_jwt(&self)
+        jwt_util.generate_jwt(self)
     }
 }
 

@@ -1,13 +1,8 @@
 use actix_web::web;
-use anyhow;
-use oauth2::basic::BasicClient;
-use oauth2::reqwest::async_http_client;
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
-    Scope, TokenResponse, TokenUrl,
+    AuthorizationCode, CsrfToken,
 };
 use serde::Deserialize;
-use url::Url;
 
 mod error;
 mod github;

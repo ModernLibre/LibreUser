@@ -1,17 +1,10 @@
-use std::borrow::Cow;
 
-use actix_web::{
-    dev::ServiceRequest, get, middleware, post, put, web, HttpMessage, HttpRequest, HttpResponse,
-    Responder, ResponseError,
-};
+use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 
-use diesel::prelude::*;
-use diesel::{query_source, ExpressionMethods};
 
-use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 
-use crate::{database, models, jwt};
+use crate::jwt;
 
 mod signin;
 mod users;

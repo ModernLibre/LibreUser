@@ -1,5 +1,4 @@
-use actix_web::web::Json;
-use oauth2::{basic::BasicErrorResponseType, RequestTokenError, StandardErrorResponse};
+use oauth2::RequestTokenError;
 
 #[derive(Debug, derive_more::Display)]
 pub enum Error {

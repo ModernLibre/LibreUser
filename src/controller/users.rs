@@ -1,15 +1,13 @@
 use std::borrow::Cow;
 
 use actix_web::{
-    dev::ServiceRequest, get, middleware, post, put, web, HttpMessage, HttpRequest, HttpResponse,
-    Responder, ResponseError,
+    get, put, web, HttpMessage, HttpRequest, HttpResponse,
 };
-use actix_web_httpauth::middleware::HttpAuthentication;
 
 use diesel::prelude::*;
-use diesel::{query_source, ExpressionMethods};
+use diesel::ExpressionMethods;
 
-use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
+use diesel_async::RunQueryDsl;
 
 use crate::jwt;
 use crate::{database, models};
@@ -19,21 +17,24 @@ async fn get_users(
     req: HttpRequest,
     pool: web::Data<database::PostgresPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let ext = req.extensions();
-    let request_user = ext
-        .get::<jwt::Claims>()
-        .ok_or(actix_web::error::ErrorUnauthorized(
-            "User not authenticated",
-        ))?;
-    if !request_user.admin {
-        return Err(actix_web::error::ErrorUnauthorized("User is not an admin"));
+    {
+        let ext = req.extensions();
+        let request_user = ext
+            .get::<jwt::Claims>()
+            .ok_or(actix_web::error::ErrorUnauthorized(
+                "User not authenticated",
+            ))?;
+        if !request_user.admin {
+            return Err(actix_web::error::ErrorUnauthorized("User is not an admin"));
+        }
     }
+
     let mut conn = pool.get().await?;
 
     let users = models::user::dsl::user
         .load::<models::User>(&mut conn)
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(users))
 }
@@ -57,19 +58,19 @@ struct UserLogin {
 /// - `404`: User not found
 #[get("/{login}")]
 async fn get_user_with_login(
-    req: HttpRequest,
+    // req: HttpRequest,
     pool: web::Data<database::PostgresPool>,
     param: web::Path<UserLogin>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let ext = req.extensions();
-    let _request_user = ext
-        .get::<jwt::Claims>()
-        .ok_or(actix_web::error::ErrorUnauthorized("User not found"))?;
+    // let ext = req.extensions();
+    // let _request_user = ext
+    //     .get::<jwt::Claims>()
+    //     .ok_or(actix_web::error::ErrorUnauthorized("User not found"))?;
 
     let mut conn = pool.get().await?;
 
     let query_result: Result<Vec<models::User>, diesel::result::Error> = models::user::dsl::user
-        .filter(models::user::dsl::login.eq(param.login.to_owned()))
+        .filter(models::user::dsl::login.eq(&param.login))
         .load(&mut conn)
         .await;
 
@@ -78,7 +79,7 @@ async fn get_user_with_login(
         _ => actix_web::error::ErrorInternalServerError(err),
     })?;
 
-    return Ok(HttpResponse::Ok().json(user));
+    Ok(HttpResponse::Ok().json(user))
 }
 
 #[derive(serde::Deserialize)]
@@ -96,13 +97,16 @@ async fn update_user(
     param: web::Path<UserLogin>,
     update: web::Json<UpdateBuilder>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let ext = req.extensions();
-    let request_user = ext
-        .get::<jwt::Claims>()
-        .ok_or(actix_web::error::ErrorUnauthorized("User not found"))?;
+    let (is_itself, is_admin) = {
+        let ext = req.extensions();
+        let request_user = ext
+            .get::<jwt::Claims>()
+            .ok_or(actix_web::error::ErrorUnauthorized("User not found"))?;
 
-    let is_itself = request_user.login == param.login;
-    let is_admin = request_user.admin;
+        (request_user.login == param.login, request_user.admin)
+    };
+
+    let param_login: &str = &param.login;
 
     let deny = update.username.is_some() && !is_itself && !is_admin
         || update.login.is_some() && !is_itself && !is_admin
@@ -117,17 +121,17 @@ async fn update_user(
 
     if let Some(username) = &update.username {
         diesel::update(
-            models::user::dsl::user.filter(models::user::dsl::login.eq(param.login.to_owned())),
+            models::user::dsl::user.filter(models::user::dsl::login.eq(param_login)),
         )
-        .set(models::user::dsl::name.eq(username.to_owned()))
+        .set(models::user::dsl::name.eq(username))
         .execute(&mut conn)
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
     if let Some(login) = &update.login {
         let existing_user: Result<models::User, diesel::result::Error> = models::user::dsl::user
-            .filter(models::user::dsl::login.eq(login.to_owned()))
+            .filter(models::user::dsl::login.eq(login))
             .first(&mut conn)
             .await;
 
@@ -136,32 +140,32 @@ async fn update_user(
         }
 
         diesel::update(
-            models::user::dsl::user.filter(models::user::dsl::login.eq(param.login.to_owned())),
+            models::user::dsl::user.filter(models::user::dsl::login.eq(param_login)),
         )
-        .set(models::user::dsl::login.eq(login.to_owned()))
+        .set(models::user::dsl::login.eq(&login))
         .execute(&mut conn)
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
     if let Some(email) = &update.email {
         diesel::update(
-            models::user::dsl::user.filter(models::user::dsl::login.eq(param.login.to_owned())),
+            models::user::dsl::user.filter(models::user::dsl::login.eq(param_login)),
         )
-        .set(models::user::dsl::email.eq(email.to_owned()))
+        .set(models::user::dsl::email.eq(email))
         .execute(&mut conn)
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
-    if let Some(admin) = &update.admin {
+    if let Some(admin) = update.admin {
         diesel::update(
-            models::user::dsl::user.filter(models::user::dsl::login.eq(param.login.to_owned())),
+            models::user::dsl::user.filter(models::user::dsl::login.eq(param_login)),
         )
-        .set(models::user::dsl::admin.eq(admin.to_owned()))
+        .set(models::user::dsl::admin.eq(admin))
         .execute(&mut conn)
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(err))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     }
 
     Ok(HttpResponse::Ok().finish())

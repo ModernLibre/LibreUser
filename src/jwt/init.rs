@@ -25,11 +25,11 @@ fn env_jwt_util() -> JwtUtil {
     let private_key =
         EncodingKey::from_rsa_pem(&priv_file).expect("Failed to parse private key file");
 
-    return JwtUtil {
+    JwtUtil {
         public_key,
         private_key,
         algorithm,
-    };
+    }
 }
 
 fn env_jwt_algorithm() -> jsonwebtoken::Algorithm {

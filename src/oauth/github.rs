@@ -117,7 +117,7 @@ pub fn github_config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/github")
             .app_data(client)
-            .route("/auth", web::get().to(auth))
+            .route("", web::get().to(auth))
             .route("/callback", web::get().to(callback)),
     );
 }
@@ -141,7 +141,7 @@ async fn auth(
     let mut redis = (**redis).clone();
     let _ = redis.set::<_, _, ()>(csrf_state, pkce_verifier).await;
     // Return the CSRF token to the client
-    HttpResponse::SeeOther()
+    HttpResponse::Found()
         .append_header(("Location", authorize_url.as_str()))
         .append_header(("X-CSRF-Token", csrf_state.as_str()))
         .finish()

@@ -11,13 +11,14 @@ paths:
       responses:
         '200':
           description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LibreUser'
         '401':
           description: Unauthorized
-    post:
-      summary: Create a new user
-      responses:
-        '200':
-          description: Successful operation
   /users/{login}:
     get:
       summary: Get user by login
@@ -32,6 +33,10 @@ paths:
       responses:
         '200':
           description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibreUser'
         '401':
           description: Unauthorized
         '404':
@@ -61,6 +66,37 @@ paths:
           description: Forbidden
         '404':
           description: User not found
+  /oauth/github:
+    get:
+      summary: Redirect to GitHub OAuth login
+      responses:
+        '302':
+          description: Redirect to GitHub
+  /oauth/github/callback:
+    get:
+      summary: GitHub OAuth callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibreUser'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
 components:
   securitySchemes:
     bearerAuth:
@@ -78,3 +114,18 @@ components:
           type: string
         admin:
           type: boolean
+    LibreUser:
+      type: object
+      properties:
+        username:
+          type: string
+        login:
+          type: string
+        email:
+          type: string
+        admin:
+          type: boolean
+        avatar:
+          type: string
+        github:
+          type: string

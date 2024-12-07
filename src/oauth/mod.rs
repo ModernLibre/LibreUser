@@ -1,3 +1,4 @@
+use actix_web::web;
 use anyhow;
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
@@ -11,6 +12,13 @@ use url::Url;
 mod error;
 mod github;
 pub use error::Error;
+
+pub fn init(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/oauth")
+        .configure(github::github_config)
+    );
+}
 
 #[derive(Deserialize)]
 pub struct CallbackQuery {

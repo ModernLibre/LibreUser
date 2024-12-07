@@ -21,8 +21,7 @@ fn env_jwt_util() -> JwtUtil {
     let pub_file = std::fs::read(pubkey_path).expect("Failed to read public key file");
     let priv_file = std::fs::read(privkey_path).expect("Failed to read private key file");
 
-    let public_key = 
-        DecodingKey::from_rsa_pem(&pub_file).expect("Failed to parse public key file");
+    let public_key = DecodingKey::from_rsa_pem(&pub_file).expect("Failed to parse public key file");
     let private_key =
         EncodingKey::from_rsa_pem(&priv_file).expect("Failed to parse private key file");
 

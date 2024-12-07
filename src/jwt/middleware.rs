@@ -8,10 +8,12 @@ pub(crate) async fn validator(
     req: ServiceRequest,
     credentials: BearerAuth,
 ) -> Result<ServiceRequest, actix_web::error::Error> {
-    let jwt = req.app_data::<JwtUtil>().expect("JwtUtil is not configured");
+    let jwt = req
+        .app_data::<JwtUtil>()
+        .expect("JwtUtil is not configured");
     match jwt.validate_jwt(&credentials.token()) {
         Ok(user) => {
-            req.extensions_mut().insert(user);
+            req.extensions_mut().insert(user.claims);
             Ok(req)
         }
         Err(e) => Err(actix_web::error::ErrorUnauthorized(e.to_string())),

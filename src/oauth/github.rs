@@ -15,6 +15,8 @@
 
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder, ResponseError};
 
+use diesel_async::pooled_connection::bb8::PooledConnection;
+use diesel_async::AsyncPgConnection;
 use oauth2::basic::{BasicClient, BasicErrorResponseType, BasicTokenType};
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
@@ -34,7 +36,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 
 use super::Error;
+use crate::database;
 use crate::env::HOST_URL;
+use crate::models;
 
 type GitHubClient = Client<
     StandardErrorResponse<BasicErrorResponseType>,
@@ -78,6 +82,21 @@ pub struct GitHubUser {
     pub r#type: String,
     pub site_admin: bool,
     pub starred_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl From<GitHubUser> for models::User {
+    fn from(user: GitHubUser) -> Self {
+        Self {
+            uid: uuid::Uuid::new_v4(),
+            name: user.name.unwrap_or_else(|| user.login.clone()),
+            login: user.login,
+            avatar: user.avatar_url.to_string(),
+            email: user.email.unwrap_or_else(|| "".to_string()),
+            created_at: chrono::Utc::now().naive_utc(),
+            admin: false,
+            github_id: Some(user.id as i64),
+        }
+    }
 }
 
 pub fn github_config(cfg: &mut web::ServiceConfig) {
@@ -128,24 +147,71 @@ async fn auth(
         .finish()
 }
 
+#[derive(Serialize)]
+struct LoginResponse {
+    user: models::User,
+    token: String,
+}
+
 async fn callback(
     query: web::Query<super::CallbackQuery>,
     github: web::Data<GitHubClient>,
-    redis: web::Data<redis::aio::MultiplexedConnection>,
-) -> Result<HttpResponse, Error> {
+    jwt: web::Data<crate::jwt::JwtUtil>,
+    redis_pool: web::Data<database::RedisMultiplexClient>,
+    postgres_pool: web::Data<database::PostgresPool>,
+) -> Result<HttpResponse, actix_web::Error> {
+    use redis::AsyncCommands;
     let query = query.into_inner();
-    let mut redis = (**redis).clone();
-    let pkce_verifier: String = redis.get(query.state.secret()).await?;
-    let pkce_verifier = PkceCodeVerifier::new(pkce_verifier);
+    let mut redis_conn = redis_pool.get().await?;
+
+    let pkce_verifier = PkceCodeVerifier::new(
+        redis_conn
+            .get(query.state.secret())
+            .await
+            .map_err(|e| actix_web::error::ErrorBadRequest(e))?,
+    );
+
     let token = github
         .exchange_code(query.code)
         .set_pkce_verifier(pkce_verifier)
         .request_async(oauth2::reqwest::async_http_client)
-        .await?;
+        .await
+        .map_err(|err| match err {
+            oauth2::RequestTokenError::ServerResponse(response) => {
+                actix_web::error::ErrorBadRequest(response.to_string())
+            }
+            _ => actix_web::error::ErrorInternalServerError(err),
+        })?;
 
-    let user = get_user_info_from_github(&token).await?;
+    let github_user = get_user_info_from_github(&token).await?;
+    let mut conn = postgres_pool.get().await?;
 
-    return Ok(HttpResponse::Ok().finish());
+    let find_result = models::User::find_by_github_id(github_user.id, &mut conn).await;
+
+    // Following are sign-in or sign-up logic
+    let libre_user = match find_result {
+        Ok(user) => user,
+        Err(models::Error::NotFound) => {
+            // Create a new user ==> sign-up
+            models::User::from(github_user).create(&mut conn).await?
+        }
+        Err(err) => return Err(err.into()),
+    };
+
+    // generate a JWT token
+    let jwt = crate::jwt::Claims::from(&libre_user)
+        .expiration(chrono::Duration::hours(1))
+        .generate_jwt(&jwt)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    let body = LoginResponse {
+        user: libre_user,
+        token: jwt,
+    };
+
+    Ok(HttpResponse::SeeOther()
+        .append_header(("Location", "/"))
+        .json(body))
 }
 
 async fn get_user_info_from_github(
